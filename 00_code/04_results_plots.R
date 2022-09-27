@@ -25,6 +25,7 @@ load(file = paste0("./02_output/09_results/",
                    model, "/", em_data, "_small", small,  
                    "_adjusted", adjust, ".Rda"))
 
+cN_full <- names(list_int_quants$agriculture)
 
 df_plot_int <- c()
 for(cc in cN_full) {
@@ -96,7 +97,6 @@ plot_totals$sector <- factor(plot_totals$sector, levels = c("total", "transport"
 levels(plot_totals$sector) <- c("Total Emissions","Transport Emissions",
                                 "Agriculture Emissions", "Industry Emissions", 
                                 "Buildings Emissions", "Energy Emissions")
-
 
 
 # #####
@@ -292,7 +292,7 @@ p_fcast_regions <- ggplot(data = plot_regions_all %>%
               alpha = 0.2) +
   scale_fill_manual(values = c("#FF0000", "#FF0000"), guide = "none") +
   geom_line(aes(x = year, y = (`50%` / 10^7)), 
-            color = "#000000", size = 1) + 
+            color = "#000000") + 
   facet_wrap(.~region, scales = "free") +
   theme_bw() + 
   # scale_y_continuous(trans="log10") +
@@ -355,7 +355,7 @@ p_fcast_income <- ggplot(data = df_plot_em_income %>%
               alpha = 0.2) +
   scale_fill_manual(values = c("#FF0000", "#FF0000"), guide = "none") +
   geom_line(aes(x = year, y = (`50%` / 10^7)), 
-            color = "#000000", size = 1) + 
+            color = "#000000") + 
   facet_wrap(.~income, scales = "free") +
   theme_bw() + 
   labs(x = "", y = "Total GHG emissions (Gigatons CO2eq)") + 
@@ -411,7 +411,7 @@ p_comp_oil_income <- ggplot(data = df_plot_em_oil_income %>%
               alpha = 0.2) +
   scale_fill_manual(values = c("#FF0000", "#FF0000"), guide = "none") +
   geom_line(aes(x = year, y = (`50%` / 10^7)), 
-            color = "#000000", size = 1) + 
+            color = "#000000") + 
   facet_wrap(.~oil+sector, scales = "free_y", ncol = 3) +
   theme_bw() + 
   #scale_y_continuous(trans="log10") +
@@ -503,7 +503,7 @@ p_IAM_fcast_comp_all <- ggplot(data = df_plot_em_regions_global %>% filter(secto
               alpha = 0.2) +
   scale_fill_manual(values = c("#FF0000", "#FF0000"), guide = "none") +
   geom_line(aes(x = year, y = (`50%` / 10^7)), 
-            color = "#000000", size = 1) + 
+            color = "#000000", size = 0.75) + 
   geom_line(data = IAM_SSP2_baseline_GHG %>% 
               mutate(region = replace(region, region == "World", " World")) %>% 
               left_join(scale_factor_all) %>% 
@@ -512,7 +512,7 @@ p_IAM_fcast_comp_all <- ggplot(data = df_plot_em_regions_global %>% filter(secto
               mutate(GHG = GHG / (GHG[year == 2018] / scale[year == 2018]))
             , 
             aes(x = year, y = GHG / 10^7, group = model, col = model), 
-            size = 1) + 
+            size = 0.75) + 
   facet_wrap(.~region, scales = "free") +
   theme_bw() + 
   labs(x = "", y = "Total GHG emissions (Gigatons CO2eq)") + 
@@ -627,14 +627,17 @@ df_plot_em_sub_energy <- df_plot_em %>%
   mutate(cN = countrycode::countrycode(iso3c, 
                                        "iso3c", 
                                        "country.name"),
-         cN = replace(cN, cN == "Australia", " Australia"), 
-         cN = replace(cN, cN == "Mexico", " Mexico"), 
-         cN = replace(cN, cN == "Israel", " Israel"), 
-         cN = replace(cN, cN == "United States", "  United States"), 
-         cN = replace(cN, cN == "Germany", "  Germany"), 
-         cN = replace(cN, cN == "United Kingdom", "  United Kingdom"),
+         # cN = replace(cN, cN == "Australia", " Australia"), 
+         # cN = replace(cN, cN == "Mexico", " Mexico"), 
+         # cN = replace(cN, cN == "Israel", " Israel"), 
+         # cN = replace(cN, cN == "United States", "  United States"), 
+         # cN = replace(cN, cN == "Germany", "  Germany"), 
+         # cN = replace(cN, cN == "United Kingdom", "  United Kingdom"),
          iso_sector = paste0(cN, " - ", sector), 
          iso_sector = str_remove(iso_sector, " Emissions")) 
+
+df_plot_em_sub_energy$cN <- factor(df_plot_em_sub_energy$cN, 
+     levels = c("Germany", "United Kingdom", "United States", "Ghana", "India", "Iran", "Australia", "Israel", "Mexico"))
 
 p_select_energy <- ggplot(data = df_plot_em_sub_energy) + 
   geom_ribbon(aes(x = year, ymin = (`50%` / 10^4), ymax = (`84%`/10^4)), 
@@ -867,51 +870,51 @@ dev.off()
 
 ### Figures supplementary material
 
-# Figure A1
-pdf(file = paste0(output_folder, "/FigA1-comp_fcast_income.pdf"),
+# Figure S1
+pdf(file = paste0(output_folder, "/FigS1-comp_fcast_income.pdf"),
     width = 10, height = 6)
 p_fcast_income
 dev.off()
 
-# Figure A2
-pdf(file = paste0(output_folder, "/FigA2-comp_fcast_oil_income.pdf"),
+# Figure S2
+pdf(file = paste0(output_folder, "/FigS2-comp_fcast_oil_income.pdf"),
     width = 10, height = 9)
 p_comp_oil_income
 dev.off()
 
 
-# Figure B1
-pdf(file = paste0(output_folder, "/FigB1-comp_fcast_energy.pdf"),
+# Figure S3
+pdf(file = paste0(output_folder, "/FigS3-comp_fcast_energy.pdf"),
     onefile = TRUE, width = 10, height = 7.5)
 p_select_energy
 dev.off()
 
-# Figure B2
-pdf(file = paste0(output_folder, "/FigB2-comp_fcast_transport.pdf"), 
+# Figure S4
+pdf(file = paste0(output_folder, "/FigS4-comp_fcast_transport.pdf"), 
     onefile = TRUE, width = 10, height = 6)
 p_select_transport
 dev.off()
 
-# Figure B3
-pdf(file = paste0(output_folder, "/FigB3-comp_fcast_RUS.pdf"),
+# Figure S5
+pdf(file = paste0(output_folder, "/FigS5-comp_fcast_RUS.pdf"),
     onefile = TRUE, width = 10, height = 6)
 p_emissions_RUS
 dev.off()
 
-# Figure B4
-pdf(file = paste0(output_folder, "/FigB4-comp_fcast_UKR.pdf"),
+# Figure S6
+pdf(file = paste0(output_folder, "/FigS6-comp_fcast_UKR.pdf"),
     onefile = TRUE, width = 10, height = 6)
 p_emissions_UKR
 dev.off()
 
-# Figure B5
-pdf(file = paste0(output_folder, "/FigB5-comp_fcast_reducer.pdf"),
+# Figure S7
+pdf(file = paste0(output_folder, "/FigS7-comp_fcast_reducer.pdf"),
     onefile = TRUE, width = 10, height = 6)
 p_select_reducer
 dev.off()
 
-# Figure B6
-pdf(file = paste0(output_folder, "/FigB6-comp_fcast_increaser.pdf"),
+# Figure S8
+pdf(file = paste0(output_folder, "/FigS8-comp_fcast_increaser.pdf"),
     onefile = TRUE, width = 10, height = 6)
 p_select_increaser
 dev.off()
@@ -961,4 +964,34 @@ table_em <- cbind(data_hist, data_proj)
 
 xt_table_em <- xtable(table_em)
 print.xtable(xt_table_em, include.rownames = FALSE)
+
+#####
+# Calculations for global carbon budget
+
+load("./01_data/processed/ghg_data.Rda")
+
+share_CO2_2018 <- essd_ghg %>% 
+  filter(iso3c %in% cN_full, year == 2018) %>%
+  mutate(gas = replace(gas, gas != "CO2", "nonCO2"), 
+         value_gwp = gwp100_ar5 * value) %>% 
+  group_by(year, gas) %>% 
+  summarise(sum_gwp = sum(value_gwp, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  mutate(share_gas = sum_gwp / sum(sum_gwp)) %>% 
+  filter(gas == "CO2") %>% 
+  pull(share_gas)
+  
+
+carbon_budget_total <- plot_totals %>% 
+  filter(sector == "Total Emissions") %>% 
+  select(year, `50%`) %>% 
+  rename(median = `50%`) %>% 
+  mutate(median = median * share_CO2_2018) %>% 
+  filter(year > 2019) %>% 
+  mutate(median = cumsum(median / 10^7))
+
+carbon_budget_total %>% filter(median > 400) %>% filter(year == min(year))
+carbon_budget_total %>% filter(median > 1150) %>% filter(year == min(year))
+
+
 
