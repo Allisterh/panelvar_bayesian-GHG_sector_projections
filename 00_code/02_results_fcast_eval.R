@@ -8,7 +8,7 @@ require(xtable)
 
 #### Scramble data together on emissions intensities and total emissions
 
-model <- "cluster/NG_PVAR_fcast_eval"
+model <- "NG_PVAR_fcast_eval"
 small <- c("TRUE", "+urb", "+educ+old", "FALSE")
 trans <- c("lvl")
 det <- c(1)

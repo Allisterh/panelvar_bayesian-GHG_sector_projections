@@ -118,24 +118,24 @@ knn_list <- spdep::knearneigh(coordinates(country_shp), k = 5)$nn
 if(adjust) {
   # List of countries per sector that need to be adjusted ex-posted due to 
   # unrealistic emission intensity behavior and resulting emissions
-  list_cN_replace <- list("buildings" = c("ABW", "BEN", "BHS", "BIH", "BLZ", 
-                                          "CAF", "CMR", "GUY", "KAZ", "KGZ", 
-                                          "OMN", "SWZ", "VCT"),
+  list_cN_replace <- list("buildings" = c("ABW", "ARM", "BEN", "BHS", "BIH", 
+                                          "BLZ", "CAF", "CMR", "GUY", "KAZ", 
+                                          "KGZ", "OMN", "RUS", "SWZ", "VCT"),
                           "energy" = c("AFG", "BDI", "BEN", "BWA", "CAF", "CIV", 
                                        "CRI", "FJI", "GIN", "GUY", "HTI", "IRQ", 
                                        "LAO", "LCA", "LKA", "MDV", "MLI", "MNE", 
-                                       "MOZ", "NER", "PRI", "SUR", "SWZ", "TLS", 
-                                       "URY", "VUT"),
-                          "transport" = c("AFG", "AGO", "ARM", "BDI",  "BEN", "CIV",
-                                          "COM", "CPV", "GIN", "GUY", "LAO",
-                                          "LBR", "MDV", "MKD", "MLI", "MMR",
-                                          "MOZ", "NER", "NPL", "SEN", "TGO",
-                                          "TJK", "TZA", "UGA", "VCT", "VUT",
-                                          "YEM"),
-                          "agriculture" = c("BDI", "GIN", "GUY"), 
-                          "industry" = c("BHR", "GAB", "GUY", "MAC", "MDV", "NPL", 
-                                         "OMN", "QAT", "SEN", "SWZ", 
-                                         "RUS", "MLT"))
+                                       "MOZ", "NER", "OMN", "PRI", "SUR", "SWZ", 
+                                       "TLS", "TTO", "URY", "VEN", "VUT"),
+                          "transport" = c("AFG", "AGO", "ARM", "BDI", "BEN", 
+                                          "CIV", "COM", "CPV", "GIN", "GUY",
+                                          "KIR", "LAO", "LBR", "MDV", "MKD", 
+                                          "MLI", "MMR", "MOZ", "NER", "NPL", 
+                                          "SEN", "TGO", "TJK", "TLS", "TON", 
+                                          "TZA", "UGA", "VCT", "VUT", "YEM"),
+                          "agriculture" = c("BDI", "GIN", "GUY", "TCD"), 
+                          "industry" = c("BHR", "GAB", "GUY", "LAO", "MAC", "MDG", 
+                                         "MDV", "NPL", "OMN", "QAT", "RUS", "SEN", 
+                                         "SWZ", "TTO", "MLT"))
   total_cN_replace <- unique(unlist(list_cN_replace)) 
   for(j in sector_vec) {
     cN_replace <- list_cN_replace[[j]]
@@ -257,7 +257,10 @@ colnames(list_em_sectors_quants$agriculture) <- 1980:2050
 regions_income <- WDI::WDI_data$country %>% 
   as.data.frame() %>% 
   select(iso3c, country, region, income) %>% 
-  filter(iso3c %in% cN_full)
+  filter(iso3c %in% cN_full) %>% 
+  mutate(income = replace(income, iso3c == "VEN", "Upper middle income"))
+  # Venezuela is rated as "Not classified" in newest version of WB ranking
+  # Changed it manually to the last rating it had before to avoid it being placed separately
 
 
 # Getting IAM regions
@@ -281,11 +284,28 @@ regions_income <- regions_income %>%
   mutate(oil = "oil_import", 
          oil = replace(oil, iso3c %in% cN_oil, "oil_export"))
 
+# Taking 10 IPCC AR6 regions for region split
+regions_IPCC <- openxlsx::read.xlsx("./01_data/essd_ghg_data_gwp100.xlsx", 
+                                    sheet = 5)
+regions_IPCC <- regions_IPCC[, c("ISO", "region_ar6_10")]
+names(regions_IPCC) <- c("iso3c", "region_ipcc")
+regions_income <- left_join(regions_income, regions_IPCC) 
+regions_income <- regions_income %>% 
+  mutate(region_ipcc = replace(region_ipcc, 
+                               region_ipcc == "South-East Asia and developing Pacific", 
+                               "South-East Asia"))
+
+# Create 9 regions out of the AR6 regions for better fit of plots 
+regions_income <- regions_income %>% 
+  mutate(region_ipcc_9 = region_ipcc, 
+         region_ipcc_9 = replace(region_ipcc_9, region_ipcc_9 == "Europe", "Europe & Eurasia"),
+         region_ipcc_9 = replace(region_ipcc_9, region_ipcc_9 == "Eurasia", "Europe & Eurasia"))
+
 
 # Creating dataframes holding various regional results
 
 
-# AR5 regions
+# AR5 regions for IAM comparison
 list_em_regions <- list()
 for(rr in unique(regions_income$region_ar5)) {
   list_em_regions[[rr]] <- list()
@@ -314,13 +334,72 @@ list_em_regions_quants <- lapply(list_em_regions,
                                          na.rm = TRUE)))
 
 
+# IPCC 10 regions
+list_em_ipcc <- list()
+for(rr in unique(regions_income$region_ipcc)) {
+  list_em_ipcc[[rr]] <- list()
+  for(jj in names(list_em_draws)) {
+    pos_cN <- regions_income[which(regions_income$region_ipcc == rr), "iso3c"]
+    if(jj == "buildings" & rr == "Eurasia") pos_cN <- pos_cN[-which(pos_cN == "TJK")]
+    
+    list_em_ipcc[[rr]][[jj]] <- list_em_draws[[jj]][pos_cN]
+    for(cc in names(list_em_ipcc[[rr]][[jj]])) {
+      temp <- list_em_ipcc[[rr]][[jj]][[cc]]
+      pos_year_end <- which(rownames(temp) == year_end)
+      pos_NAs <- which(rowSums(temp[1:pos_year_end, ], na.rm = TRUE) == 0)
+      if(length(pos_NAs) > 0) {
+        temp[pos_NAs, ] <- 0
+      }
+      list_em_ipcc[[rr]][[jj]][[cc]] <- temp
+    }
+    list_em_ipcc[[rr]][[jj]] <- Reduce("+", list_em_ipcc[[rr]][[jj]])
+  }
+}
+
+list_em_ipcc_quants <- lapply(list_em_ipcc, 
+                                 function(x) lapply(x, function(y) 
+                                   apply(y, 1, quantile, 
+                                         p = c(0.05, 0.16, 0.5, 0.84, 0.95), 
+                                         na.rm = TRUE)))
+
+
+# IPCC 9 regions
+list_em_ipcc_9 <- list()
+for(rr in unique(regions_income$region_ipcc_9)) {
+  list_em_ipcc_9[[rr]] <- list()
+  for(jj in names(list_em_draws)) {
+    pos_cN <- regions_income[which(regions_income$region_ipcc_9 == rr), "iso3c"]
+    if(jj == "buildings" & rr == "Europe & Eurasia") pos_cN <- pos_cN[-which(pos_cN == "TJK")]
+    
+    list_em_ipcc_9[[rr]][[jj]] <- list_em_draws[[jj]][pos_cN]
+    for(cc in names(list_em_ipcc_9[[rr]][[jj]])) {
+      temp <- list_em_ipcc_9[[rr]][[jj]][[cc]]
+      pos_year_end <- which(rownames(temp) == year_end)
+      pos_NAs <- which(rowSums(temp[1:pos_year_end, ], na.rm = TRUE) == 0)
+      if(length(pos_NAs) > 0) {
+        temp[pos_NAs, ] <- 0
+      }
+      list_em_ipcc_9[[rr]][[jj]][[cc]] <- temp
+    }
+    list_em_ipcc_9[[rr]][[jj]] <- Reduce("+", list_em_ipcc_9[[rr]][[jj]])
+  }
+}
+
+list_em_ipcc_9_quants <- lapply(list_em_ipcc_9, 
+                              function(x) lapply(x, function(y) 
+                                apply(y, 1, quantile, 
+                                      p = c(0.05, 0.16, 0.5, 0.84, 0.95), 
+                                      na.rm = TRUE)))
+
+
+
 # Income
 list_em_income <- list()
 for(rr in unique(regions_income$income)) {
   list_em_income[[rr]] <- list()
   for(jj in names(list_em_draws)) {
     pos_cN <- regions_income[which(regions_income$income == rr), "iso3c"]
-    if(jj == "buildings" & rr == "Low income") pos_cN <- pos_cN[-which(pos_cN == "TJK")]
+    if(jj == "buildings" & rr == "Lower middle income") pos_cN <- pos_cN[-which(pos_cN == "TJK")]
     
     list_em_income[[rr]][[jj]] <- list_em_draws[[jj]][pos_cN]
     for(cc in names(list_em_income[[rr]][[jj]])) {
@@ -384,9 +463,12 @@ list_em_oil_income_quants <- lapply(list_em_oil_income,
 save(list_int_quants, # list_int_draws,
      list_em_quants, # list_em_draws, 
      list_em_sectors_quants, # list_em_sectors,
+     list_em_ipcc_quants, # list_em_ipcc, 
+     list_em_ipcc_9_quants, # list_em_ipcc_9,
      list_em_regions_quants, # list_em_regions, 
      list_em_income_quants, # list_em_income,
      list_em_oil_income_quants, # list_em_oil_income,
      file = paste0("./02_output/09_results/", 
                    model, "/", em_data, "_small", small, 
                    "_adjusted", adjust, ".Rda"))
+

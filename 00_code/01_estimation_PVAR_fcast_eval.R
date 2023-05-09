@@ -28,8 +28,9 @@ if(user == "cluster") {
 # load auxiliary R files
 source("./00_code/model_functions/00_auxiliary_functions.R")
 
-# shall all draws be saved or only summary statistics? Default is TRUE
-saving <- TRUE
+# shall all draws be saved or only summary statistics?
+# Default is FALSE for forecast evaluation 
+saving <- FALSE
 
 # Settings to choose from
 em_data <- c("ESSD_intensity")
