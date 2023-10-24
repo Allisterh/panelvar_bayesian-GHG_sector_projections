@@ -77,6 +77,7 @@ levels(df_plot_em$sector) <- c("Total Emissions", "Transport Emissions",
                                "Agriculture Emissions", "Industry Emissions", 
                                "Buildings Emissions", "Energy Emissions")
 
+
 plot_totals <- c()
 for(j in c("total", "transport", "agriculture", "industry", "buildings", "energy")) {
   temp_quant <- list_em_sectors_quants[[j]]
@@ -1071,7 +1072,7 @@ df_plot_BAU$sector <- factor(df_plot_BAU$sector,
                                         "Buildings Emissions", "Energy Emissions"))
 
 p_comp_BAU_total <- ggplot(data = df_plot_BAU %>% filter(sector == "Total Emissions", 
-                                                         !iso3c %in% c("COL", "MEX", "THA"))) + 
+                                                         iso3c %in% c("IDN", "IRN", "TUR"))) +
   geom_ribbon(aes(x = year, ymin = (`50%`), ymax = (`84%`)), 
               fill = "#FF0000", alpha = 0.4) + 
   geom_ribbon(aes(x = year, ymax = (`50%`), ymin = (`16%`)), 
@@ -1087,7 +1088,7 @@ p_comp_BAU_total <- ggplot(data = df_plot_BAU %>% filter(sector == "Total Emissi
   facet_wrap(.~country, scales = "free_y") + 
   theme_bw() + 
   labs(x = "", y = "Total emissions (Megatons CO2eq)") +
-  ggtitle(paste0("Comparison BAU Scenarios for Total GHG Emissions")) +
+  # ggtitle(paste0("Comparison BAU Scenarios for Total GHG Emissions")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -1300,7 +1301,7 @@ map_pc_final <- plot_grid(map_pc_row, legend_pc,
 # Figure 1
 pdf(file = paste0(output_folder, "/Fig1-selected_countries.pdf"),
     onefile = TRUE, width = 10, height = 6)
-cowplot::plot_grid(p_select_1, p_select_2, ncol = 1, labels = "AUTO")
+cowplot::plot_grid(p_select_1, p_select_2, ncol = 1, labels = "auto")
 dev.off()
 
 # Figure 2
@@ -1335,7 +1336,7 @@ dev.off()
 
 # Figure 7
 pdf(file = paste0(output_folder, "/Fig7-comp_fcast_BAU_total.pdf"),
-    onefile = TRUE, width = 10, height = 6)
+    onefile = TRUE, width = 10, height = 4)
 p_comp_BAU_total
 dev.off()
 
@@ -1416,7 +1417,7 @@ dev.off()
 
 
 #####
-# Table for top-15 emitting sectors
+# Table 1: top-15 emitting sectors in 2018 and 2050
 
 data_hist <- df_plot_em %>% 
   filter(year == 2018, sector != "Total Emissions") %>% 
@@ -1459,6 +1460,107 @@ table_em <- cbind(data_hist, data_proj)
 
 xt_table_em <- xtable(table_em)
 print.xtable(xt_table_em, include.rownames = FALSE)
+
+
+#####
+# Table S1: Shares of global emissions within sectors for world regions in 2018 and 2050
+
+data_tab_risk_hist <- df_plot_em_ipcc %>% 
+  filter(year == 2018) %>% 
+  transmute(region_ipcc, 
+            sector = str_split(sector, " ", simplify = T)[,1], 
+            med = `50%`) %>% 
+  group_by(sector) %>% 
+  mutate(med = round(med / sum(med) * 100, 1)) %>% 
+  pivot_wider(names_from = sector, values_from = med) %>% 
+  arrange(desc(Total)) %>% 
+  as.data.frame()
+rownames(data_tab_risk_hist) <- data_tab_risk_hist$region_ipcc
+data_tab_risk_hist$region_ipcc <- NULL
+
+xt_table_em_risk_hist <- xtable(data_tab_risk_hist, digits = 1)
+print.xtable(xt_table_em_risk_hist)
+
+
+data_tab_risk_proj <- df_plot_em_ipcc %>% 
+  filter(year == 2050) %>% 
+  transmute(region_ipcc, 
+            sector = str_split(sector, " ", simplify = T)[,1],
+            lower = `16%`,
+            med = `50%`, 
+            upper = `84%`) %>% 
+  group_by(sector) %>% 
+  mutate(lower = sprintf("%.1f", lower / sum(lower) * 100), 
+         med = sprintf("%.1f", med / sum(med) * 100), 
+         upper = sprintf("%.1f", upper / sum(upper) * 100), 
+         conf = paste0("(", lower, "-", upper, ")")) %>% 
+  dplyr::select(-lower, -upper) %>% 
+  pivot_longer(cols = med:conf) %>% 
+  pivot_wider(names_from = sector, values_from = value)
+order_proj <- df_plot_em_ipcc %>% 
+  filter(year == 2050, sector == "Total Emissions") %>% 
+  arrange(desc(`50%`)) %>% 
+  pull(region_ipcc)
+data_tab_risk_proj <- data_tab_risk_proj %>% 
+  arrange(factor(region_ipcc, levels = order_proj)) %>% 
+  mutate(region_ipcc = replace(region_ipcc, name == "conf", NA)) %>% 
+  dplyr::select(-name)
+
+xt_table_em_risk_proj <- xtable(data_tab_risk_proj)
+print.xtable(xt_table_em_risk_proj, include.rownames = FALSE)
+
+
+data_tab_risk_proj_med <- df_plot_em_ipcc %>% 
+  filter(year == 2050) %>% 
+  transmute(region_ipcc, 
+            sector = str_split(sector, " ", simplify = T)[,1],
+            med = `50%`) %>% 
+  group_by(sector) %>% 
+  mutate(med = med / sum(med) * 100) %>% 
+  pivot_wider(names_from = sector, values_from = med) %>% 
+  arrange(desc(Total)) %>% 
+  as.data.frame()
+rownames(data_tab_risk_proj_med) <- data_tab_risk_proj_med$region_ipcc
+data_tab_risk_proj_med$region_ipcc <- NULL
+
+xt_table_em_risk_proj_med <- xtable(data_tab_risk_proj_med, digits = 1)
+print.xtable(xt_table_em_risk_proj_med)
+
+
+data_tab_risk_proj_upper <- df_plot_em_ipcc %>% 
+  filter(year == 2050) %>% 
+  transmute(region_ipcc, 
+            sector = str_split(sector, " ", simplify = T)[,1],
+            med = `84%`) %>% 
+  group_by(sector) %>% 
+  mutate(med = med / sum(med) * 100) %>% 
+  pivot_wider(names_from = sector, values_from = med) %>% 
+  arrange(desc(Total)) %>% 
+  as.data.frame()
+rownames(data_tab_risk_proj_upper) <- data_tab_risk_proj_upper$region_ipcc
+data_tab_risk_proj_upper$region_ipcc <- NULL
+
+xt_table_em_risk_proj_upper <- xtable(data_tab_risk_proj_upper, digits = 1)
+print.xtable(xt_table_em_risk_proj_upper)
+
+
+data_tab_risk_proj_lower <- df_plot_em_ipcc %>% 
+  filter(year == 2050) %>% 
+  transmute(region_ipcc, 
+            sector = str_split(sector, " ", simplify = T)[,1],
+            med = `16%`) %>% 
+  group_by(sector) %>% 
+  mutate(med = med / sum(med) * 100) %>% 
+  pivot_wider(names_from = sector, values_from = med) %>% 
+  arrange(desc(Total)) %>% 
+  as.data.frame()
+rownames(data_tab_risk_proj_lower) <- data_tab_risk_proj_lower$region_ipcc
+data_tab_risk_proj_lower$region_ipcc <- NULL
+
+xt_table_em_risk_proj_lower <- xtable(data_tab_risk_proj_lower, digits = 1)
+print.xtable(xt_table_em_risk_proj_lower)
+
+
 
 #####
 # Calculations for global carbon budget
