@@ -4,7 +4,7 @@
 library(dplyr)
 library(ggplot2)
 library(tidyverse)
-require(xtable)
+library(xtable)
 
 ## load data processed in previous step
 
@@ -101,7 +101,7 @@ levels(plot_totals$sector) <- c("Total Emissions","Transport Emissions",
 
 
 #####
-# Country results
+# Full country results
 
 # pdf(file = paste0(output_folder, "/emissions_all_cN.pdf"),
 #     onefile = TRUE, width = 10, height = 6)
@@ -194,21 +194,16 @@ levels(plot_totals$sector) <- c("Total Emissions","Transport Emissions",
 # Preparations for regional plots
 
 # Income status from WB
-regions_income <- WDI::WDI_data$country %>% 
-  as.data.frame() %>% 
-  select(iso3c, country, region, income) %>% 
-  filter(iso3c %in% unique(df_plot_int$iso3c)) %>% 
-  mutate(income = replace(income, iso3c == "VEN", "Upper middle income"))
-  # Venezuela is rated as "Not classified" in newest version of WB ranking
-  # Changed it manually to the last rating it had before to avoid it being placed separately
-
+# Venezuela is rated as "Not classified" in FY23 version of WB ranking - changed 
+# it manually to the last rating it had before to avoid it being placed separately
+regions_income <- read.csv("./01_data/WB_income_class_FY23.csv")
 
 # Getting IAM regions
 region_mapping <- xlsx::read.xlsx("./01_data/cmip6_iam_model_region_mapping.xlsx", 
                                   sheetIndex = 1)
 names(region_mapping)[c(1,3)] <- c("iso3c", "region_ar5")
 
-regions_income <- left_join(regions_income, region_mapping[ , c(1,3)])
+regions_income <- left_join(regions_income, region_mapping[ , c(1,3)], by = "iso3c")
 regions_income <- regions_income %>% 
   mutate(region_ar5 = replace(region_ar5, region_ar5 == "R5ASIA", "Asia"),
          region_ar5 = replace(region_ar5, region_ar5 == "R5LAM", "Latin America and Caribbean"),
@@ -229,7 +224,7 @@ regions_IPCC <- openxlsx::read.xlsx("./01_data/essd_ghg_data_gwp100.xlsx",
                                     sheet = 5)
 regions_IPCC <- regions_IPCC[, c("ISO", "region_ar6_10")]
 names(regions_IPCC) <- c("iso3c", "region_ipcc")
-regions_income <- left_join(regions_income, regions_IPCC) 
+regions_income <- left_join(regions_income, regions_IPCC, by = "iso3c") 
 regions_income <- regions_income %>% 
   mutate(region_ipcc = replace(region_ipcc, 
                                region_ipcc == "South-East Asia and developing Pacific", 
@@ -277,7 +272,6 @@ p_fcast_global <- ggplot(data = plot_totals) +
   facet_wrap(.~sector, scales = "free_y") + 
   theme_bw() + 
   labs(x = "", y = "Sectoral emissions (Gigatons CO2eq)") + 
-  ggtitle(paste0("Global Sectoral Emissions")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -287,8 +281,6 @@ p_fcast_global <- ggplot(data = plot_totals) +
         axis.title = element_text(size = 14), 
         axis.text = element_text(size = 12), 
         strip.text = element_text(size = 12))
-
-
 
 # Plot with AR5 regions
 df_plot_em_regions <- c()
@@ -333,9 +325,7 @@ p_fcast_regions <- ggplot(data = plot_regions_all %>%
             color = "#000000") + 
   facet_wrap(.~region, scales = "free") +
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Total GHG emissions (Gigatons CO2eq)") + 
-  ggtitle(paste0("Emissions forecasts by AR5 regions")) +
   theme(legend.position = "bottom", 
         legend.title = element_text(size = 14), 
         legend.title.align = 0.5,
@@ -411,9 +401,7 @@ p_fcast_ipcc_9 <- ggplot(data = df_plot_em_ipcc_9 %>%
             color = "#000000") + 
   facet_wrap(.~region_ipcc_9, scales = "free") +
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Aggregate GHG emissions (Gigatons CO2eq)") + 
-  ggtitle(paste0("Aggregate emissions by IPCC regions")) +
   theme(legend.position = "bottom", 
         legend.title = element_text(size = 14), 
         legend.title.align = 0.5,
@@ -450,7 +438,6 @@ p_fcast_ipcc_9_int <- ggplot(data = df_plot_em_ipcc_9_int %>%
   facet_wrap(.~region_ipcc_9, scales = "free") +
   theme_bw() + 
   labs(x = "", y = "Emissions intensity (ton CO2eq / 10k GDP)") + 
-  ggtitle(paste0("Emissions intensities by IPCC regions")) +
   theme(legend.position = "bottom", 
         legend.title = element_text(size = 14), 
         legend.title.align = 0.5,
@@ -509,7 +496,6 @@ p_fcast_income <- ggplot(data = df_plot_em_income %>%
   facet_wrap(.~income, scales = "free") +
   theme_bw() + 
   labs(x = "", y = "Total GHG emissions (Gigatons CO2eq)") + 
-  ggtitle(paste0("Emissions forecasts by income classification")) +
   theme(legend.position = "bottom", 
         legend.title = element_text(size = 14), 
         legend.title.align = 0.5,
@@ -564,9 +550,7 @@ p_comp_oil_income <- ggplot(data = df_plot_em_oil_income %>%
             color = "#000000") + 
   facet_wrap(.~oil+sector, scales = "free_y", ncol = 3) +
   theme_bw() + 
-  #scale_y_continuous(trans="log10") +
   labs(x = "", y = "Total GHG emissions (Gigatons CO2eq)") + 
-  ggtitle(paste0("Emissions forecasts for high income countries")) +
   theme(legend.position = "bottom", 
         legend.title = element_text(size = 14), 
         legend.title.align = 0.5,
@@ -659,14 +643,12 @@ p_IAM_fcast_comp_all <- ggplot(data = df_plot_em_regions_global %>%
               left_join(scale_factor_all) %>% 
               ungroup() %>% 
               group_by(model, region) %>% 
-              mutate(GHG = GHG / (GHG[year == 2018] / scale[year == 2018]))
-            , 
+              mutate(GHG = GHG / (GHG[year == 2018] / scale[year == 2018])), 
             aes(x = year, y = GHG / 10^7, group = model, col = model), 
             size = 0.75) + 
   facet_wrap(.~region, scales = "free") +
   theme_bw() + 
   labs(x = "", y = "Total GHG emissions (Gigatons CO2eq)") + 
-  ggtitle(paste0("Emissions forecasts compared to IAM scenarios")) +
   theme(legend.position = "bottom", 
         legend.title = element_text(size = 14), 
         legend.title.align = 0.5,
@@ -765,12 +747,6 @@ df_plot_em_sub_energy <- df_plot_em %>%
   mutate(cN = countrycode::countrycode(iso3c, 
                                        "iso3c", 
                                        "country.name"),
-         # cN = replace(cN, cN == "Australia", " Australia"), 
-         # cN = replace(cN, cN == "Mexico", " Mexico"), 
-         # cN = replace(cN, cN == "Israel", " Israel"), 
-         # cN = replace(cN, cN == "United States", "  United States"), 
-         # cN = replace(cN, cN == "Germany", "  Germany"), 
-         # cN = replace(cN, cN == "United Kingdom", "  United Kingdom"),
          iso_sector = paste0(cN, " - ", sector), 
          iso_sector = str_remove(iso_sector, " Emissions")) 
 
@@ -789,9 +765,7 @@ p_select_energy <- ggplot(data = df_plot_em_sub_energy) +
   geom_line(aes(x = year, y = (`50%` / 10^4))) + 
   facet_wrap(.~cN, scales = "free_y") + 
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Sectoral emissions (Megatons CO2eq)") + 
-  # ggtitle(paste0("Energy Emissions for Selected Countries")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -831,9 +805,7 @@ p_select_transport <- ggplot(data = df_plot_em_sub_trans) +
   geom_line(aes(x = year, y = (`50%` / 10^4))) + 
   facet_wrap(.~iso_sector, scales = "free_y") + 
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Sectoral emissions (Megatons CO2eq)") + 
-  # ggtitle(paste0(" Emissions for Selected Countries")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -867,9 +839,7 @@ p_select_reducer <- ggplot(data = df_plot_em_sub_reducer) +
   geom_line(aes(x = year, y = (`50%` / 10^4))) + 
   facet_wrap(.~iso_sector, scales = "free_y") + 
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Total emissions (Megatons CO2eq)") + 
-  # ggtitle(paste0(" Emissions for Selected Countries")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -903,7 +873,6 @@ p_select_increaser <- ggplot(data = df_plot_em_sub_increaser) +
   geom_line(aes(x = year, y = (`50%` / 10^4))) + 
   facet_wrap(.~iso_sector, scales = "free_y") + 
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Total emissions (Megatons CO2eq)") + 
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
@@ -929,9 +898,7 @@ p_emissions_RUS <- ggplot(data = df_plot_em %>% filter(iso3c == "RUS")) +
   geom_line(aes(x = year, y = (`50%` / 10^4))) + 
   facet_wrap(.~sector, scales = "free_y") + 
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Sectoral emissions (Megatons CO2eq)") + 
-  ggtitle(paste0("Russia", " Sectoral Emissions")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -956,9 +923,7 @@ p_emissions_UKR <- ggplot(data = df_plot_em %>% filter(iso3c == "UKR")) +
   geom_line(aes(x = year, y = (`50%` / 10^4))) + 
   facet_wrap(.~sector, scales = "free_y") + 
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Sectoral emissions (Megatons CO2eq)") + 
-  ggtitle(paste0("Ukraine", " Sectoral Emissions")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -984,7 +949,6 @@ p_int_time <- ggplot(data = df_plot_int %>% filter(year > 1999),
   facet_wrap(.~sector, scales = "free_y") + 
   theme_bw() + 
   labs(x = "", y = "Emission Intensity (tons / 10k GDP)") +
-  ggtitle(paste0("Evolution Emission Intensities Over Time")) +
   scale_colour_viridis_d() + 
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
@@ -1018,7 +982,6 @@ p_conv_int <- ggplot(data = df_plot_int_scatter, aes(x = (`2018`), y = `2050`)) 
   theme_bw() + 
   labs(x = "Emission Intensity (tons / 10k GDP) in 2018", 
        y = "Emission Intensity (tons / 10k GDP) in 2050") +
-  ggtitle(paste0("Comparison Emission Intensities over time")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -1088,7 +1051,6 @@ p_comp_BAU_total <- ggplot(data = df_plot_BAU %>% filter(sector == "Total Emissi
   facet_wrap(.~country, scales = "free_y") + 
   theme_bw() + 
   labs(x = "", y = "Total emissions (Megatons CO2eq)") +
-  # ggtitle(paste0("Comparison BAU Scenarios for Total GHG Emissions")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 
@@ -1114,9 +1076,7 @@ p_comp_BAU_MEX <- ggplot(data = df_plot_BAU %>% filter(iso3c == "MEX")) +
   scale_color_manual(values = c("#133abd", "#1fb417")) +
   facet_wrap(.~sector, scales = "free_y") + 
   theme_bw() + 
-  # scale_y_continuous(trans="log10") +
   labs(x = "", y = "Sectoral emissions (Megatons CO2eq)") +
-  ggtitle(paste0("Comparison BAU Sectoral Emissions for Mexico")) +
   theme(legend.position = "bottom", 
         legend.title = element_blank(), 
         plot.title = element_text(size = 20), 

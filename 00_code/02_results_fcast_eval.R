@@ -209,7 +209,9 @@ for(mm in opts$Var2) {
   hit_rates_table["total", mm] <- sum(tot_ind) / length(tot_ind)
 }
 
-# Putting tables in shape for paper
+#####
+# Table S2: Out-of-sample Model Validation
+
 lps_table_paper <- lps_table[c(1, 3, 5, 6, 4, 2) ,]
 rmse_table_paper <- rmse_dens_table[c(1, 3, 5, 6, 4, 2) ,]
 hit_rates_table_paper <- hit_rates_table[1, ]
